@@ -26,4 +26,50 @@ dockr run --rm \
 
 ## Example output
 ```
+Step 1: Fetching policy evaluation results...
+Step 1: Completed successfully. Proceeding to Step 2...
+Step 2: Fetching policy evaluation results with last evaluated at...
+Step 2: Completed successfully. Proceeding to Step 3...
+Step 3: Comparing last evaluated at and current time...
+Step 3: Completed successfully. Proceeding to Step 4...
+Step 4: Performing the image re-evaluation...
+{
+    "sha256:a484819eb60211f5299034ac80f6a681b06f89e65866ce91f356ed7c72af059c": {
+        "tag": "docker.io/library/nginx:latest",
+        "at_epoch": 1716788222,
+        "at": "2024-05-27T05:37:02",
+        "current_time_epoch": 1716790058,
+        "current_time": "2024-05-27T06:07:38.837191",
+        "flag": true,
+        "req_check": [
+            {
+                "sha256:a484819eb60211f5299034ac80f6a681b06f89e65866ce91f356ed7c72af059c": {
+                    "docker.io/library/nginx:latest": [
+                        {
+                            "detail": {},
+                            "last_evaluation": "2024-05-27T06:07:39Z",
+                            "policyId": "default",
+                            "status": "fail"
+                        }
+                    ]
+                }
+            }
+        ]
+    },
+    "sha256:70e40e3ca545f637c03817ec76a9a4d8e9667a8a11fdafba6a7b34c56d27cee5": {
+        "tag": "quay.io/sysdig/host-analyzer:0.1.19",
+        "at_epoch": 1716788314,
+        "at": "2024-05-27T05:38:34",
+        "current_time_epoch": 1716790058,
+        "current_time": "2024-05-27T06:07:38.837191",
+        "flag": false
+    }
+}
+
+Summary:
+Step 1: Number of images found: 64
+Step 4: Number of images re-evaluated: 20
+Step 4: Number of re-evaluate attempts: 20
+Step 4: Number of successful re-evaluations: 20
+Step 4: Number of failed re-evaluations: 0
 ```
