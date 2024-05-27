@@ -49,7 +49,7 @@ Step 4: Performing the image re-evaluation...
                             "detail": {},
                             "last_evaluation": "2024-05-27T06:07:39Z",
                             "policyId": "default",
-                            "status": "fail"
+                            "status": "pass"
                         }
                     ]
                 }
