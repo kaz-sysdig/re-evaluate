@@ -5,104 +5,120 @@ from datetime import datetime, timedelta
 
 SECURE_API = os.getenv('SECURE_API')
 SECURE_URL = os.getenv('SECURE_URL')
-#
-# Step 1: Fetch data from the first API and extract imageDigest and fullTag
-#
-print("Step 1: Fetching policy evaluation results...")
-url = f"https://{SECURE_URL}/api/scanning/v1/resultsDirect?limit=10000&offset=0&sort=desc&sortBy=scanDate"
-headers = {
-    "Authorization": f"Bearer {SECURE_API}"
-}
-response = requests.get(url, headers=headers, verify=True)
 
-if response.status_code == 200:
-    log1_data = response.json()
-else:
-    print(f"Failed to fetch data: {response.status_code}")
-    log1_data = {}
+if not SECURE_API or not SECURE_URL:
+    raise ValueError("SECURE_API and SECURE_URL environment variables must be set")
 
-dict1 = {}
-if 'results' in log1_data:
-    for result in log1_data['results']:
-        image_digest = result['imageDigest']
-        full_tag = result['fullTag']
-        dict1[image_digest] = full_tag
-
-print("Step 1: Completed successfully. Proceeding to Step 2...")
-
-#
-# Step 2: Fetch policy evaluation data and populate dict2
-#
-print("Step 2: Fetching policy evaluation results with last evaluated at...")
-dict2 = {}
-
-for image_digest, full_tag in dict1.items():
-    policy_url = f"https://{SECURE_URL}/api/scanning/v1/images/{image_digest}/policyEvaluation?tag={full_tag}"
-    response = requests.get(policy_url, headers=headers, verify=True)
+def fetch_policy_evaluation_results():
+    """Step 1: Fetch data from the first API and extract imageDigest and fullTag"""
+    print("Step 1: Fetching policy evaluation results...", flush=True)
+    url = f"https://{SECURE_URL}/api/scanning/v1/resultsDirect?limit=10000&offset=0&sort=desc&sortBy=scanDate"
+    headers = {
+        "Authorization": f"Bearer {SECURE_API}"
+    }
+    response = requests.get(url, headers=headers, verify=True)
 
     if response.status_code == 200:
-        policy_data = response.json()
-        at_epoch = policy_data.get('at', None)
-        if at_epoch:
-            at_time = datetime.fromtimestamp(at_epoch).isoformat()
-            dict2[image_digest] = {
-                'tag': full_tag,
-                'at_epoch': at_epoch,
-                'at': at_time
-            }
+        log1_data = response.json()
     else:
-        print(f"Failed to fetch policy evaluation for {image_digest}: {response.status_code}")
+        print(f"Failed to fetch data: {response.status_code}", flush=True)
+        log1_data = {}
 
-print("Step 2: Completed successfully. Proceeding to Step 3...")
+    dict1 = {}
+    if 'results' in log1_data:
+        for result in log1_data['results']:
+            image_digest = result['imageDigest']
+            full_tag = result['fullTag']
+            dict1[image_digest] = full_tag
 
+    print("Step 1: Completed successfully. Proceeding to Step 2...", flush=True)
+    return dict1
 
-#
-# Step 3: Compare epoch times and add flag if difference is more than N hours
-#
-print("Step 3: Comparing last evaluated at and current time...")
+def fetch_policy_evaluation_data(dict1):
+    """Step 2: Fetch policy evaluation data and populate dict2"""
+    print("Step 2: Fetching policy evaluation results with last evaluated at...", flush=True)
+    dict2 = {}
 
-current_time = datetime.now()
-current_time_epoch = int(current_time.timestamp())
-for key, value in dict2.items():
-    at_time = datetime.fromtimestamp(value['at_epoch'])
-    value['current_time_epoch'] = current_time_epoch
-    value['current_time'] = current_time.isoformat()
-    #if (current_time_epoch - value['at_epoch']) > 1800:  #30mins
-    if (current_time_epoch - value['at_epoch']) > 86400:  # 24 hours * 60 minutes * 60 seconds
-        value['flag'] = True
-    else:
-        value['flag'] = False
+    for image_digest, full_tag in dict1.items():
+        policy_url = f"https://{SECURE_URL}/api/scanning/v1/images/{image_digest}/policyEvaluation?tag={full_tag}"
+        headers = {
+            "Authorization": f"Bearer {SECURE_API}"
+        }
+        response = requests.get(policy_url, headers=headers, verify=True)
 
-print("Step 3: Completed successfully. Proceeding to Step 4...")
-
-
-# Step 4: Perform the API call for image re evaluation
-print("Step 4: Performing the image re-evaluation...")
-reevaluate_attempts = 0
-reevaluate_successes = 0
-reevaluate_failures = 0
-
-for image_digest, details in dict2.items():
-    if details.get('flag'):
-        reevaluate_attempts += 1
-        req_url = f"https://{SECURE_URL}/api/scanning/v1/anchore/images/by_id/{image_digest}/check?detail=false&forceReload=true&tag={details['tag']}&detail=false"
-        req_response = requests.get(req_url, headers=headers, verify=True)
-
-        if req_response.status_code == 200:
-            req_data = req_response.json()
-            details['req_check'] = req_data
-            reevaluate_successes += 1
+        if response.status_code == 200:
+            policy_data = response.json()
+            at_epoch = policy_data.get('at', None)
+            if at_epoch:
+                at_time = datetime.fromtimestamp(at_epoch).isoformat()
+                dict2[image_digest] = {
+                    'tag': full_tag,
+                    'at_epoch': at_epoch,
+                    'at': at_time
+                }
         else:
-            print(f"Failed to fetch the check for {image_digest}: {req_response.status_code}")
-            reevaluate_failures += 1
+            print(f"Failed to fetch policy evaluation for {image_digest}: {response.status_code}", flush=True)
 
-# Output dict2
-print(json.dumps(dict2, indent=4))
+    print("Step 2: Completed successfully. Proceeding to Step 3...", flush=True)
+    return dict2
 
-# Display summary information
-print("\nSummary:")
-print(f"Step 1: Number of images found: {len(dict1)}")
-print(f"Step 4: Number of images re-evaluated: {reevaluate_attempts}")
-print(f"Step 4: Number of re-evaluate attempts: {reevaluate_attempts}")
-print(f"Step 4: Number of successful re-evaluations: {reevaluate_successes}")
-print(f"Step 4: Number of failed re-evaluations: {reevaluate_failures}")
+def compare_epoch_times(dict2):
+    """Step 3: Compare epoch times and add flag if difference is more than 30 minutes"""
+    print("Step 3: Comparing last evaluated at and current time...", flush=True)
+
+    current_time = datetime.now()
+    current_time_epoch = int(current_time.timestamp())
+    for key, value in dict2.items():
+        value['current_time_epoch'] = current_time_epoch
+        value['current_time'] = current_time.isoformat()
+        if (current_time_epoch - value['at_epoch']) > 1800:  # 30 minutes
+            value['flag'] = True
+        else:
+            value['flag'] = False
+
+    print("Step 3: Completed successfully. Proceeding to Step 4...", flush=True)
+    return dict2
+
+def perform_image_re_evaluation(dict2):
+    """Step 4: Perform the API call for image re-evaluation"""
+    print("Step 4: Performing the image re-evaluation...", flush=True)
+    reevaluate_attempts = 0
+    reevaluate_successes = 0
+    reevaluate_failures = 0
+
+    for image_digest, details in dict2.items():
+        if details.get('flag'):
+            reevaluate_attempts += 1
+            req_url = f"https://{SECURE_URL}/api/scanning/v1/anchore/images/by_id/{image_digest}/check?detail=false&forceReload=true&tag={details['tag']}&detail=false"
+            headers = {
+                "Authorization": f"Bearer {SECURE_API}"
+            }
+            req_response = requests.get(req_url, headers=headers, verify=True)
+
+            if req_response.status_code == 200:
+                req_data = req_response.json()
+                details['req_check'] = req_data
+                reevaluate_successes += 1
+            else:
+                print(f"Failed to fetch the check for {image_digest}: {req_response.status_code}", flush=True)
+                reevaluate_failures += 1
+
+    # Output dict2
+    print(json.dumps(dict2, indent=4), flush=True)
+
+    # Display summary information
+    print("\nSummary:", flush=True)
+    print(f"Step 1: Number of images found: {len(dict2)}", flush=True)
+    print(f"Step 4: Number of images re-evaluated: {reevaluate_attempts}", flush=True)
+    print(f"Step 4: Number of re-evaluate attempts: {reevaluate_attempts}", flush=True)
+    print(f"Step 4: Number of successful re-evaluations: {reevaluate_successes}", flush=True)
+    print(f"Step 4: Number of failed re-evaluations: {reevaluate_failures}", flush=True)
+
+def main():
+    dict1 = fetch_policy_evaluation_results()
+    dict2 = fetch_policy_evaluation_data(dict1)
+    dict2 = compare_epoch_times(dict2)
+    perform_image_re_evaluation(dict2)
+
+if __name__ == "__main__":
+    main()
