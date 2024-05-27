@@ -7,8 +7,8 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY script.py .
+COPY force_evaluate.py .
 
 ENV PYTHONUNBUFFERED=1
 
-ENTRYPOINT ["python", "script.py"]
+ENTRYPOINT ["python", "force_evaluate.py"]
