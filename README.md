@@ -7,6 +7,9 @@ export SECURE_URL=app.us4.sysdig.com
 
 # Your Sysdig Secure API Token
 export SECURE_API=1c708a83-e413-4c45-87fc-9df23163cxxx
+
+# Time diff between last evaluated at and current time
+export TIME_DIFF=86400
 ```
 
 ## Usage
@@ -21,6 +24,7 @@ docker build -t force_evaluate .
 dockr run --rm \
  -e SECURE_URL={YOUR_SECURE_API_ENDPOINT} \
  -e SECURE_API={YOUR_SECURE_API_TOKEN} \
+ -e TIME_DIFF={Time diff between last evaluated at and current time} \
  force_evaluate
 ```
 

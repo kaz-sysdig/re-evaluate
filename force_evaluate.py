@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 
 SECURE_API = os.getenv('SECURE_API')
 SECURE_URL = os.getenv('SECURE_URL')
+TIME_DIFF = os.getenv('TIME_DIFF')
+TIME_DIFF = int(TIME_DIFF)
 
 if not SECURE_API or not SECURE_URL:
     raise ValueError("SECURE_API and SECURE_URL environment variables must be set")
@@ -63,7 +65,7 @@ def fetch_policy_evaluation_data(dict1):
     return dict2
 
 def compare_epoch_times(dict2):
-    """Step 3: Compare epoch times and add flag if difference is more than 30 minutes"""
+    """Step 3: Compare epoch times and add flag if difference is more than N seconds"""
     print("Step 3: Comparing last evaluated at and current time...", flush=True)
 
     current_time = datetime.now()
@@ -71,7 +73,7 @@ def compare_epoch_times(dict2):
     for key, value in dict2.items():
         value['current_time_epoch'] = current_time_epoch
         value['current_time'] = current_time.isoformat()
-        if (current_time_epoch - value['at_epoch']) > 1800:  # 30 minutes
+        if (current_time_epoch - value['at_epoch']) > TIME_DIFF:
             value['flag'] = True
         else:
             value['flag'] = False
