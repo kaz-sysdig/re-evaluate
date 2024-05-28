@@ -38,7 +38,7 @@ echo -n '503ae4b0-eefh-4cah-baeh-eeeeelfeeee7' | base64
 SECURE_API: {SECURE_API_TOKEN}
 
 # Set values in cronjob.yaml
-% vi secret.yaml
+% vi cronjob.yaml
 secret
 - SECURE_API
 env
