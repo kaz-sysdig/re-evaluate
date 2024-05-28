@@ -28,6 +28,28 @@ dockr run --rm \
  force_evaluate
 ```
 
+## Kubernetes
+```
+# Create a secret for SECURE_API
+echo -n '503ae4b0-eefh-4cah-baeh-eeeeelfeeee7' | base64
+
+# Set the secret value in secret.yaml
+% vi secret.yaml
+SECURE_API: {SECURE_API_TOKEN}
+
+# Set values in cronjob.yaml
+% vi secret.yaml
+secret
+- SECURE_API
+env
+- {YOUR_SECURE_URL}
+- {TIME_DIFF}
+
+# create secret and cronjob
+kubectl apply -f secret.yaml
+kubectl apply -f cronjob.yaml
+```
+
 ## Example output
 ```
 Step 1: Fetching policy evaluation results...
