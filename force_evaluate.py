@@ -2,6 +2,11 @@ import requests
 import json
 import os
 from datetime import datetime, timedelta
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("urllib3").setLevel(logging.DEBUG)
+logging.getLogger("requests").setLevel(logging.DEBUG)
 
 SECURE_API = os.getenv('SECURE_API')
 SECURE_URL = os.getenv('SECURE_URL')
@@ -18,7 +23,7 @@ def fetch_policy_evaluation_results():
     headers = {
         "Authorization": f"Bearer {SECURE_API}"
     }
-    response = requests.get(url, headers=headers, verify=True)
+    response = requests.get(url, headers=headers, verify=False)
 
     if response.status_code == 200:
         log1_data = response.json()
@@ -29,11 +34,15 @@ def fetch_policy_evaluation_results():
     dict1 = {}
     if 'results' in log1_data:
         for result in log1_data['results']:
-            image_digest = result['imageDigest']
             full_tag = result['fullTag']
-            dict1[image_digest] = full_tag
+            image_digest = result['imageDigest']
+            image_id = result['imageId']
+            image_key = f"{full_tag}-{image_id}"
+            dict1[image_key] = {'image_id': image_id, 'image_digest': image_digest, 'full_tag': full_tag}
 
     print("Step 1: Completed successfully. Proceeding to Step 2...", flush=True)
+    print(json.dumps(dict1, indent=4), flush=True)
+    print("---------------------------------------------------------------------")
     return dict1
 
 def fetch_policy_evaluation_data(dict1):
@@ -41,19 +50,25 @@ def fetch_policy_evaluation_data(dict1):
     print("Step 2: Fetching policy evaluation results with last evaluated at...", flush=True)
     dict2 = {}
 
-    for image_digest, full_tag in dict1.items():
+    #for full_tag, image_id in dict1.items():
+    for image_key, details in dict1.items():
+        full_tag = details['full_tag']
+        image_id = details['image_id']
+        image_digest = details['image_digest']
         policy_url = f"https://{SECURE_URL}/api/scanning/v1/images/{image_digest}/policyEvaluation?tag={full_tag}"
         headers = {
             "Authorization": f"Bearer {SECURE_API}"
         }
-        response = requests.get(policy_url, headers=headers, verify=True)
+        response = requests.get(policy_url, headers=headers, verify=False)
 
         if response.status_code == 200:
             policy_data = response.json()
             at_epoch = policy_data.get('at', None)
             if at_epoch:
                 at_time = datetime.fromtimestamp(at_epoch).isoformat()
-                dict2[image_digest] = {
+                dict2[image_key] = {
+                    'image_digest': image_digest,
+                    'image_id': image_id,
                     'tag': full_tag,
                     'at_epoch': at_epoch,
                     'at': at_time
@@ -62,6 +77,7 @@ def fetch_policy_evaluation_data(dict1):
             print(f"Failed to fetch policy evaluation for {image_digest}: {response.status_code}", flush=True)
 
     print("Step 2: Completed successfully. Proceeding to Step 3...", flush=True)
+    print(json.dumps(dict2, indent=4), flush=True)
     return dict2
 
 def compare_epoch_times(dict2):
@@ -88,14 +104,14 @@ def perform_image_re_evaluation(dict2):
     reevaluate_successes = 0
     reevaluate_failures = 0
 
-    for image_digest, details in dict2.items():
+    for image_key, details in dict2.items():
         if details.get('flag'):
             reevaluate_attempts += 1
-            req_url = f"https://{SECURE_URL}/api/scanning/v1/anchore/images/by_id/{image_digest}/check?detail=false&forceReload=true&tag={details['tag']}&detail=false"
+            req_url = f"https://{SECURE_URL}/api/scanning/v1/anchore/images/by_id/{details['image_digest']}/check?detail=false&forceReload=true&tag={details['tag']}&detail=false"
             headers = {
                 "Authorization": f"Bearer {SECURE_API}"
             }
-            req_response = requests.get(req_url, headers=headers, verify=True)
+            req_response = requests.get(req_url, headers=headers, verify=False)
 
             if req_response.status_code == 200:
                 req_data = req_response.json()
