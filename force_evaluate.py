@@ -16,6 +16,41 @@ TIME_DIFF = int(TIME_DIFF)
 if not SECURE_API or not SECURE_URL:
     raise ValueError("SECURE_API and SECURE_URL environment variables must be set")
 
+def check_rocky_version(dict1):
+    """Step 1.5: Get the distro info from images"""
+    print("Step 1.5: Getting the distro info...", flush=True)
+    for image_key, details in dict1.items():
+        full_tag = details['full_tag']
+        image_id = details['image_id']
+        url = f"https://{SECURE_URL}/api/scanning/v1/images/by_id/{image_id}/?fulltag={full_tag}"
+        headers = {
+            "Authorization": f"Bearer {SECURE_API}"
+        }
+        response = requests.get(url, headers=headers, verify=False)
+
+        if response.status_code == 200:
+            data = response.json()
+            for key, value in data.items():
+                if key == 'distro' and value == 'rocky':
+                    if data.get('distroVersion', '').startswith('9'):
+                        print(f"Found Rocky Linux 9.x: {data['fullTag']}")
+                        details['is_rocky_9'] = 1
+                        details['distro'] = data.get('distro')
+                        details['distroVersion'] = data.get('distroVersion')
+                    else:
+                        print("This is Rocky Linux but not version 9.x")
+                        details['is_rocky_9'] = 0
+                        details['distro'] = data.get('distro')
+                        details['distroVersion'] = data.get('distroVersion')
+        else:
+            print(f"Failed to fetch data: {response.status_code}", flush=True)
+            data = {}
+
+    print("Step 1.5: Completed successfully. Proceeding to Step 2...", flush=True)
+    print(json.dumps(dict1, indent=4), flush=True)
+    print("---------------------------------------------------------------------")
+    return dict1
+
 def fetch_policy_evaluation_results():
     """Step 1: Fetch data from the first API and extract imageDigest and fullTag"""
     print("Step 1: Fetching policy evaluation results...", flush=True)
@@ -40,7 +75,7 @@ def fetch_policy_evaluation_results():
             image_key = f"{full_tag}-{image_id}"
             dict1[image_key] = {'image_id': image_id, 'image_digest': image_digest, 'full_tag': full_tag}
 
-    print("Step 1: Completed successfully. Proceeding to Step 2...", flush=True)
+    print("Step 1: Completed successfully. Proceeding to Step 1.5...", flush=True)
     print(json.dumps(dict1, indent=4), flush=True)
     print("---------------------------------------------------------------------")
     return dict1
@@ -52,6 +87,7 @@ def fetch_policy_evaluation_data(dict1):
 
     #for full_tag, image_id in dict1.items():
     for image_key, details in dict1.items():
+        is_rocky_9 = details['is_rocky_9']
         full_tag = details['full_tag']
         image_id = details['image_id']
         image_digest = details['image_digest']
@@ -71,7 +107,8 @@ def fetch_policy_evaluation_data(dict1):
                     'image_id': image_id,
                     'tag': full_tag,
                     'at_epoch': at_epoch,
-                    'at': at_time
+                    'at': at_time,
+                    'is_rocky_9' : is_rocky_9
                 }
         else:
             print(f"Failed to fetch policy evaluation for {image_digest}: {response.status_code}", flush=True)
@@ -105,7 +142,7 @@ def perform_image_re_evaluation(dict2):
     reevaluate_failures = 0
 
     for image_key, details in dict2.items():
-        if details.get('flag'):
+        if details.get('flag') and details.get('is_rocky_9') == 0:
             reevaluate_attempts += 1
             req_url = f"https://{SECURE_URL}/api/scanning/v1/anchore/images/by_id/{details['image_digest']}/check?detail=false&forceReload=true&tag={details['tag']}&detail=false"
             headers = {
@@ -134,6 +171,7 @@ def perform_image_re_evaluation(dict2):
 
 def main():
     dict1 = fetch_policy_evaluation_results()
+    dict1 = check_rocky_version(dict1)
     dict2 = fetch_policy_evaluation_data(dict1)
     dict2 = compare_epoch_times(dict2)
     perform_image_re_evaluation(dict2)

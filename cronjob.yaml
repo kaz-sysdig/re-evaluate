@@ -4,14 +4,14 @@ metadata:
   name: re-evaluate-cronjob
   namespace: sysdig-agent
 spec:
-  schedule: "5/* * * * *"
+  schedule: "20 * * * *"
   jobTemplate:
     spec:
       template:
         spec:
           containers:
           - name: re-evaluate
-            image: ghcr.io/kaz-sysdig/re-evaluate:0.3.2
+            image: ghcr.io/kaz-sysdig/re-evaluate:0.3.5
             imagePullPolicy: Always
             env:
             - name: SECURE_API
@@ -20,7 +20,7 @@ spec:
                   name: re-evaluate-secrets
                   key: SECURE_API
             - name: SECURE_URL
-              value: "app.us4.sysdig.com"
+              value: "kaztest0827.sysdiglabs.com"
             - name: TIME_DIFF
               value: "600"
           restartPolicy: OnFailure
